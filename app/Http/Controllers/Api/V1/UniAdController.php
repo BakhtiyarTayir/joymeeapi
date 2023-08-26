@@ -50,6 +50,7 @@ class UniAdController extends Controller
         $data['ads_period_publication'] = now()->addMonth()->format('Y-m-d H:i:s');
         $data['ads_status'] = 0;
         $data['ads_period_day'] = 30;
+        $data['ads_country_id'] = 12;
 
         $imageUrls = [];
         $absolutePath = 'D:/OSPanel/domains/joymee/media/images_boards';
@@ -70,7 +71,6 @@ class UniAdController extends Controller
                 $smallImage->save($imagePath . '/small/' . $imageName, 50); // 50 - уровень качества
 
                 // Сохранение файла по абсолютному пути
-//                File::put($imagePath, file_get_contents($file));
                 $imageUrls[] = $imageName; // Generate URL for the saved image
             }
         }
@@ -115,7 +115,7 @@ class UniAdController extends Controller
 
         $uniAd->fresh();
 
-        return response()->json(['message' => 'ads updated successfully']);
+//        return response()->json(['message' => 'ads updated successfully']);
         return UniAdResource::make($uniAd);
     }
 

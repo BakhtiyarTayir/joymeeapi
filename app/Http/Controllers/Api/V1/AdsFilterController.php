@@ -50,6 +50,7 @@ class AdsFilterController extends Controller
 
             if ($filter) {
                 $filterData = [
+                    'id' => $filter->ads_filters_id,
                     'name' => $filter->ads_filters_name,
                     'type' => $filter->ads_filters_type,
                     'items' => $filter->filterItems->pluck('ads_filters_items_value'),

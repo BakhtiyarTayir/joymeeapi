@@ -61,6 +61,9 @@ Route::group([
     Route::get('/ads/prop', [\App\Http\Controllers\Api\V1\UniAdController::class, 'showFilter']);
     Route::get('/filter/show', [\App\Http\Controllers\Api\V1\AdsFilterController::class, 'getFilterFormData']);
     Route::get('/ads_category/{id_cat}/filter', [\App\Http\Controllers\Api\V1\AdsFilterController::class, 'getFiltersForCategory']);
+    Route::get('/balance/{id}', [\App\Http\Controllers\Api\V1\UserController::class, 'getBalance']);
+    Route::get('/history_balance/user_id/{id}', [\App\Http\Controllers\Api\V1\UserController::class, 'getHistoryBalance']);
+    Route::post('/pay/{payment}/{user_id}/{amount}', [\App\Http\Controllers\PaymentController::class, 'getParamForm']);
 
     Route::group(['namespace' => 'User', 'prefix'=>'users'], function() {
         Route::get('/', [App\Http\Controllers\Api\V1\UserController::class, 'index']);
