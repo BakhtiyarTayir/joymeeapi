@@ -41,8 +41,8 @@ class StoreRequest extends FormRequest
             'ads_currency' => 'string',
             'ads_period_day' => 'integer',
             'ads_area_ids'   => 'integer',
-            'ads_filter_tags' => 'string',
             'ads_tel' => 'string',
+            'filters' => 'string',
 
         ];
     }

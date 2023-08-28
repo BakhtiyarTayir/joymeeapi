@@ -48,15 +48,26 @@ class AdsFilterController extends Controller
             // Получаем фильтр из таблицы uni_ads_filters по его ID
             $filter = AdsFilter::find($filterId);
 
+
             if ($filter) {
                 $filterData = [
-                    'id' => $filter->ads_filters_id,
+                    'filter_id' => $filter->ads_filters_id,
                     'name' => $filter->ads_filters_name,
                     'type' => $filter->ads_filters_type,
-                    'items' => $filter->filterItems->pluck('ads_filters_items_value'),
                     'position' => $filter->ads_filters_position,
                     'required' => $filter->ads_filters_required,
                 ];
+
+                $items = [];
+
+                foreach ($filter->filterItems as $item) {
+                    $items[] = [
+                        'id' => $item->ads_filters_items_id, // Используйте нужное поле из вашей модели
+                        'value' => $item->ads_filters_items_value,
+                    ];
+                }
+
+                $filterData['items'] = $items;
 
                 $filtersData[] = $filterData;
             }

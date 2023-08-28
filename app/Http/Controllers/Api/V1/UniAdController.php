@@ -16,6 +16,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
+use function PHPUnit\Framework\isEmpty;
 
 class UniAdController extends Controller
 {
@@ -76,8 +77,43 @@ class UniAdController extends Controller
         }
 
         $data['ads_images'] = $imageUrls;
+        if(isset($data['filters'])){
+            $filterData = json_decode($data['filters']);
+            unset($data['filters']);
+        }
+
+
+
 
         $ads = UniAd::firstOrCreate($data);
+
+        if(isset($filterData)){
+            // Обработка данных фильтров
+            foreach ($filterData as $filterItem) {
+
+//                dd($filterItem);
+                $filterId = $filterItem->filter_id;
+
+                $items = $filterItem->items;
+
+
+                foreach ($items as $itemId => $itemValue) {
+                    var_dump($itemId, $itemValue);
+                    // Создаем запись в таблице uni_ads_filters_variants
+                    $adsFiltersVariants = new AdsFiltersVariant();
+                    $adsFiltersVariants->ads_filters_variants_id_filter = $filterId;
+
+                    if ($filterItem->type === 'select') {
+                        $adsFiltersVariants->ads_filters_variants_val = $itemId;
+                    } else {
+                        $adsFiltersVariants->ads_filters_variants_val = $itemValue;
+                    }
+
+                    $adsFiltersVariants->ads_filters_variants_product_id = $ads->ads_id;
+                    $adsFiltersVariants->save();
+                }
+            }
+        }
 
         return UniAdResource::make($ads);
     }
