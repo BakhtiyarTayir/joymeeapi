@@ -21,6 +21,7 @@ class HistoryBalanceResource extends JsonResource
         return [
             'name' => $this->name,
             'summa' => $this->summa,
+            'action' => $this->action,
             'datetime' => $this->datetime,
 
         ];

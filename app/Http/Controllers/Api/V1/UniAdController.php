@@ -20,6 +20,10 @@ use function PHPUnit\Framework\isEmpty;
 
 class UniAdController extends Controller
 {
+
+
+
+
     /**
      * Display a listing of the resource.
      */
@@ -55,7 +59,7 @@ class UniAdController extends Controller
 
         $imageUrls = [];
         $absolutePath = 'D:/OSPanel/domains/joymee/media/images_boards';
-//        $absolutePath = '/Home/web/joymee.uz/public_html/media/images_boards';
+        // $absolutePath = '/Home/web/joymee.uz/public_html/media/images_boards';
 
 
 
@@ -77,43 +81,60 @@ class UniAdController extends Controller
         }
 
         $data['ads_images'] = $imageUrls;
+
         if(isset($data['filters'])){
             $filterData = json_decode($data['filters']);
             unset($data['filters']);
         }
 
-
-
-
         $ads = UniAd::firstOrCreate($data);
 
+
         if(isset($filterData)){
+            $adsFilterTags = [];
             // Обработка данных фильтров
             foreach ($filterData as $filterItem) {
-
-//                dd($filterItem);
                 $filterId = $filterItem->filter_id;
+                $filterTitle = $filterItem->title; // Добавляем заголовок фильтра
+                $filterType = $filterItem->type;   // Добавляем тип фильтра
 
                 $items = $filterItem->items;
 
+                if($filterType === 'input') {
+                    $itemId = $items;
+                    $itemValue = $items;
+                } elseif ($filterType === 'select') {
+                    $itemId = $items->id;
+                    $itemValue = $items->value;
+                } elseif ($filterType === 'select_multi') {
+                    foreach ($items as $item) {
+                        $itemId = $item->id;
+                        $itemValue = $item->value;
 
-                foreach ($items as $itemId => $itemValue) {
-                    var_dump($itemId, $itemValue);
-                    // Создаем запись в таблице uni_ads_filters_variants
-                    $adsFiltersVariants = new AdsFiltersVariant();
-                    $adsFiltersVariants->ads_filters_variants_id_filter = $filterId;
-
-                    if ($filterItem->type === 'select') {
+                        // Создаем запись в таблице uni_ads_filters_variants
+                        $adsFiltersVariants = new AdsFiltersVariant();
+                        $adsFiltersVariants->ads_filters_variants_id_filter = $filterId;
                         $adsFiltersVariants->ads_filters_variants_val = $itemId;
-                    } else {
-                        $adsFiltersVariants->ads_filters_variants_val = $itemValue;
-                    }
+                        $adsFiltersVariants->ads_filters_variants_product_id = $ads->ads_id;
+                        $adsFiltersVariants->save();
 
-                    $adsFiltersVariants->ads_filters_variants_product_id = $ads->ads_id;
-                    $adsFiltersVariants->save();
+                        $adsFilterTags[] = $itemValue;
+                    }
+                    continue;
                 }
+
+                // Создаем запись в таблице uni_ads_filters_variants
+                $adsFiltersVariants = new AdsFiltersVariant();
+                $adsFiltersVariants->ads_filters_variants_id_filter = $filterId;
+                $adsFiltersVariants->ads_filters_variants_val = $itemId;
+                $adsFiltersVariants->ads_filters_variants_product_id = $ads->ads_id;
+                $adsFiltersVariants->save();
+
+                $adsFilterTags[] = $itemValue;
             }
         }
+        $ads->ads_filter_tags = implode(';', $adsFilterTags);
+        $ads->save();
 
         return UniAdResource::make($ads);
     }
@@ -139,19 +160,105 @@ class UniAdController extends Controller
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+
     public function update(UpdateRequest $request, UniAd $uniAd)
     {
-
         $data = $request->validated();
+
+        $data['ads_alias'] = Str::slug($data['ads_title']);
+        $data['ads_period_publication'] = now()->addMonth()->format('Y-m-d H:i:s');
+        $data['ads_status'] = 0;
+        $data['ads_period_day'] = 30;
+        $data['ads_country_id'] = 12;
+
+        $imageUrls = [];
+        $absolutePath = 'D:/OSPanel/domains/joymee/media/images_boards';
+
+        if ($request->hasFile('ads_images')) {
+            foreach ($request->file('ads_images') as $file) {
+                $imageName = $file->getClientOriginalName();
+                $imagePath = $absolutePath;
+
+                $image = Image::make($file);
+                $image->save($imagePath . '/big/' . $imageName, 90);
+
+                $smallImage = Image::make($file);
+                $smallImage->save($imagePath . '/small/' . $imageName, 50);
+
+                $imageUrls[] = $imageName;
+            }
+        }
+
+        $data['ads_images'] = $imageUrls;
+
+        if(isset($data['filters'])){
+            $filterData = json_decode($data['filters']);
+            unset($data['filters']);
+        }
 
         $uniAd->update($data);
 
-        $uniAd->fresh();
+        if(isset($filterData)){
+            $adsFilterTags = [];
+            foreach ($filterData as $filterItem) {
+                $filterId = $filterItem->filter_id;
+                $filterTitle = $filterItem->title;
+                $filterType = $filterItem->type;
 
-//        return response()->json(['message' => 'ads updated successfully']);
+                $items = $filterItem->items;
+
+                if($filterType === 'input') {
+                    $itemId = $items;
+                    $itemValue = $items;
+                } elseif ($filterType === 'select') {
+                    $itemId = $items->id;
+                    $itemValue = $items->value;
+                } elseif ($filterType === 'select_multi') {
+                    foreach ($items as $item) {
+                        $itemId = $item->id;
+                        $itemValue = $item->value;
+
+                        $adsFiltersVariants = AdsFiltersVariant::where('ads_filters_variants_product_id', $uniAd->ads_id)
+                            ->where('ads_filters_variants_id_filter', $filterId)
+                            ->first();
+
+                        if ($adsFiltersVariants) {
+                            $adsFiltersVariants->ads_filters_variants_val = $itemId;
+                            $adsFiltersVariants->save();
+                        } else {
+                            $adsFiltersVariants = new AdsFiltersVariant();
+                            $adsFiltersVariants->ads_filters_variants_id_filter = $filterId;
+                            $adsFiltersVariants->ads_filters_variants_val = $itemId;
+                            $adsFiltersVariants->ads_filters_variants_product_id = $uniAd->ads_id;
+                            $adsFiltersVariants->save();
+                        }
+
+                        $adsFilterTags[] = $itemValue;
+                    }
+                    continue;
+                }
+
+                $adsFiltersVariants = AdsFiltersVariant::where('ads_filters_variants_product_id', $uniAd->ads_id)
+                    ->where('ads_filters_variants_id_filter', $filterId)
+                    ->first();
+
+                if ($adsFiltersVariants) {
+                    $adsFiltersVariants->ads_filters_variants_val = $itemId;
+                    $adsFiltersVariants->save();
+                } else {
+                    $adsFiltersVariants = new AdsFiltersVariant();
+                    $adsFiltersVariants->ads_filters_variants_id_filter = $filterId;
+                    $adsFiltersVariants->ads_filters_variants_val = $itemId;
+                    $adsFiltersVariants->ads_filters_variants_product_id = $uniAd->ads_id;
+                    $adsFiltersVariants->save();
+                }
+
+                $adsFilterTags[] = $itemValue;
+            }
+        }
+        $uniAd->ads_filter_tags = implode(';', $adsFilterTags);
+        $uniAd->save();
+
         return UniAdResource::make($uniAd);
     }
 
