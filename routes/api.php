@@ -1,5 +1,6 @@
 <?php
 
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -56,6 +57,7 @@ Route::group([
     Route::get('/city/{cityId}/areas', [\App\Http\Controllers\Api\V1\CityController::class, 'getAreaByCites']);
     Route::get('/countries/{countryId}/regions/{regionId}/cities', [\App\Http\Controllers\Api\V1\CountryController::class, 'getCitiesByCountryAndRegion']);
     Route::get('/city_id/{city_id}/ad_category/{ad_category}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'getAdsByCityAndCategory']);
+    Route::get('/second/city_id/{city_id}/ad_category/{ad_category}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'getAdsByCityAndCategoryTwo']);
     Route::get('/reels', [\App\Http\Controllers\Api\V1\ReelsController::class, 'index']);
     Route::get('/ads/show', [\App\Http\Controllers\Api\V1\UniAdController::class, 'showWithFilter']);
     Route::get('/ads/prop', [\App\Http\Controllers\Api\V1\UniAdController::class, 'showFilter']);
@@ -65,6 +67,25 @@ Route::group([
     Route::get('/history_balance/user_id/{id}', [\App\Http\Controllers\Api\V1\UserController::class, 'getHistoryBalance']);
     Route::post('/pay/{payment}/{user_id}/{amount}', [\App\Http\Controllers\PaymentController::class, 'getParamForm']);
     Route::get('/favorites/{user_id}', [\App\Http\Controllers\Api\V1\FavoritesController::class, 'index']);
+    Route::get('/users/{userId}/ads', [\App\Http\Controllers\Api\V1\UserController::class, 'getUserAds']);
+    Route::get('/ads/vip', [\App\Http\Controllers\Api\V1\UniAdController::class, 'getVipAds']);
+    Route::post('/ads/search', [\App\Http\Controllers\Api\V1\UniAdController::class, 'searchAds']);
+    // Список объявлений
+    Route::get('/ads', [\App\Http\Controllers\Api\V1\UniAdController::class, 'index']);
+    // Создание объявления
+    Route::post('/ads', [\App\Http\Controllers\Api\V1\UniAdController::class, 'store'])->name('ads.store');
+    // Форма создания объявления
+    Route::get('/ads/create', [\App\Http\Controllers\Api\V1\UniAdController::class, 'create'])->name('ads.create');
+    // Отображение объявления
+    Route::get('/ads/{ad}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'show']);
+    // Обновление объявления
+    Route::put('/ads/{ad}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'update'])->name('ads.update');
+    Route::patch('/ads/{ad}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'update']);
+    Route::post('/ads/{ad}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'update']);
+    // Удаление объявления
+    Route::delete('/ads/{ad}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'destroy'])->name('ads.destroy');
+    // Форма редактирования объявления
+    Route::get('/ads/{ad}/edit', [\App\Http\Controllers\Api\V1\UniAdController::class, 'edit'])->name('ads.edit');
 
     Route::group(['namespace' => 'User', 'prefix'=>'users'], function() {
         Route::get('/', [App\Http\Controllers\Api\V1\UserController::class, 'index']);
@@ -80,4 +101,4 @@ Route::group([
 
 Route::apiResource('countries', \App\Http\Controllers\Api\V1\CountryController::class);
 
-Route::resource('ads', \App\Http\Controllers\Api\V1\UniAdController::class);
+//Route::resource('ads', \App\Http\Controllers\Api\V1\UniAdController::class);

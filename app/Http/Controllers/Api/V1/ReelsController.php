@@ -17,7 +17,7 @@ class ReelsController extends Controller
             if(isset($item->blog_articles_image)) {
                 $item->blog_articles_image = "https://joymee.uz/media/images_blog/medium/" . $item->blog_articles_image;
             } else {
-                $item->blog_articles_image = "https://joymee.uz/media/images_blog/medium/big/64c4d0836634d.jpg";
+                $item->blog_articles_image = "https://joymee.uz/media/images_blog/medium/64c4d0836634d.jpg";
             }
             $item->media_file = "https://joymee.uz/" .$item->media_file;
             return $item;

@@ -9,6 +9,12 @@ class AdsFiltersVariant extends Model
 {
     protected $table = 'uni_ads_filters_variants';
 
+
+    protected $primaryKey = 'ads_filters_variants_id';
+
+    protected $fillable = [
+        'ads_filters_variants_val',
+    ];
     public $timestamps = false;
     public function filter()
     {

@@ -42,6 +42,7 @@ class UpdateRequest extends FormRequest
             'ads_area_ids'   => 'integer',
             'ads_filter_tags' => 'string',
             'ads_tel' => 'string',
+            'filters' => 'string',
         ];
     }
 }

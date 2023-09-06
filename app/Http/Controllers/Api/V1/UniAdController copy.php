@@ -201,13 +201,12 @@ class UniAdController extends Controller
         if(isset($data['filters'])){
             $filterData = json_decode($data['filters']);
             unset($data['filters']);
-
         }
 
 
         $uniAd->update($data);
 
-        if (isset($filterData)) {
+        if(isset($filterData)){
             $adsFilterTags = [];
             foreach ($filterData as $filterItem) {
                 $filterId = $filterItem->filter_id;
@@ -269,6 +268,7 @@ class UniAdController extends Controller
             $uniAd->ads_filter_tags = implode(';', $adsFilterTags);
             $uniAd->save();
         }
+
 
         return UniAdResource::make($uniAd);
     }
@@ -439,6 +439,7 @@ class UniAdController extends Controller
         $districtId = $request->input('area');
         $category = $request->input('category');
 
+
         $query = UniAd::query()
             ->active()
             ->regionCityDistrict($regionId, $cityId, $districtId)
@@ -455,42 +456,32 @@ class UniAdController extends Controller
             $query->where('ads_price', '<=', $maxPrice);
         }
 
-        $filters = $request->input('filters');
+        $filters = explode(',', $request->input('filters'));
 
-        foreach ($filters as $filterItem) {
-            $filterId = $filterItem['filter_id'];
-            $filterType = $filterItem['type'];
-            $items = $filterItem['items'];
+        foreach ($filters as $filter) {
+            if (strpos($filter, ':') !== false) {
+                list($filterId, $itemValue) = explode(':', $filter);
 
-            if ($filterType === 'input' || $filterType === 'select') {
-                // Можно объединить оба случая
-                $itemValue = is_array($items) ? $items['id'] : $items;
-
-                $productIds = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
+                // Получаем ID элемента фильтра
+                $filterItemId = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
                     ->where('ads_filters_variants_val', $itemValue)
-                    ->pluck('ads_filters_variants_product_id');
-                
-                $query->whereIn('ads_id', $productIds);
-            } else if ($filterType === 'select_multi') {
-                foreach ($items as $item) {
-                    $itemValue = $item['id'];
-                    
-                    $productIds = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
-                        ->where('ads_filters_variants_val', $itemValue)
-                        ->pluck('ads_filters_variants_product_id');
-                    
-                    $query->whereIn('ads_id', $productIds);
+                    ->pluck('ads_filters_variants_product_id')
+                    ->first();
+                // Если элемент фильтра найден, добавляем условие в запрос
+                if (isset($filterItemId)) {
+                    $query->where('ads_id', $filterItemId);
                 }
             }
         }
 
+
+
         $ads = $query->get();
+
         $adsResult = $this->adService->prepareAdsData($ads);
+
         return UniAdResource::collection(collect($adsResult));
     }
-
-
-    
 
     public function getVariants($ad_id = 0)
     {
@@ -615,3 +606,67 @@ class UniAdController extends Controller
 
 
 
+$arrays = [
+    {
+      "filter_id": 6,
+      "title": "Кто разместил",
+      "items": {
+        "id": 17,
+        "value": "Собственник"
+      },
+      "type": "select",
+      "position": 1
+    },
+    {
+      "filter_id": 332,
+      "title": "На сколько человек рассчитан ваш дом",
+      "items": 5,
+      "type": "input",
+      "position": 53
+    },
+    {
+      "filter_id": 333,
+      "title": "Удобства",
+      "items": [
+        {
+          "id": 6337,
+          "value": "Бассейн"
+        },
+        {
+          "id": 6341,
+          "value": "Футбольное площадка"
+        }
+      ],
+      "type": "select_multi",
+      "position": 54
+    }
+  ]
+
+  $filters = $request->input('filters');
+
+  foreach ($filters as $filterItem) {
+      $filterId = $filterItem['filter_id'];
+      $filterType = $filterItem['type'];
+      $items = $filterItem['items'];
+
+      if ($filterType === 'input' || $filterType === 'select') {
+          // Можно объединить оба случая
+          $itemValue = is_array($items) ? $items['id'] : $items;
+
+          $productIds = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
+              ->where('ads_filters_variants_val', $itemValue)
+              ->pluck('ads_filters_variants_product_id');
+          
+          $query->whereIn('ads_id', $productIds);
+      } else if ($filterType === 'select_multi') {
+          foreach ($items as $item) {
+              $itemValue = $item['id'];
+              
+              $productIds = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
+                  ->where('ads_filters_variants_val', $itemValue)
+                  ->pluck('ads_filters_variants_product_id');
+              
+              $query->whereIn('ads_id', $productIds);
+          }
+      }
+  }

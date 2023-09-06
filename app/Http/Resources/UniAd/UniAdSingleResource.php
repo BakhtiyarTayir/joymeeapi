@@ -8,7 +8,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 use Illuminate\Support\Str;
 
-class UniAdResource extends JsonResource
+class UniAdSingleResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -44,6 +44,7 @@ class UniAdResource extends JsonResource
             'ads_filter_tags' => $this->ads_filter_tags,
             'filters' => $this->filters,
             'ads_status_name' => $this->resource->getStatusName(),
+            'category_parent_id' => $this->category_parent_id,
 
         ];
     }
