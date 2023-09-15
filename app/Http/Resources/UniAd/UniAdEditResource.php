@@ -8,9 +8,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 use Illuminate\Support\Str;
 
-class UniAdStatusResource extends JsonResource
+class UniAdEditResource extends JsonResource
 {
-
     /**
      * Transform the resource into an array.
      *
@@ -18,6 +17,8 @@ class UniAdStatusResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+
+
         return [
             'id' => $this->ads_id,
             'title' => $this->ads_title,
@@ -42,14 +43,9 @@ class UniAdStatusResource extends JsonResource
             'ads_tel' => $this->ads_tel,
             'ads_filter_tags' => $this->ads_filter_tags,
             'filters' => $this->filters,
-            'filters_all' => $this->filters_all,
             'ads_status_name' => $this->resource->getStatusName(),
-            'ads_note' => $this->ads_note,
-            'count_views' => $this->count_views,
-            'count_views_phone' => $this->count_views_phone,
-            'in_favorite' => $this->in_favorite,
-            'days' => $this->days,
-            'category_parent_id' => $this->category_parent_id,
+            'filters_selected' => $this->filters_selected,
+
         ];
     }
 }

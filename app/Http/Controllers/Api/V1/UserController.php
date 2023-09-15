@@ -12,6 +12,7 @@ use App\Http\Resources\UniAd\UniAdResource;
 use App\Http\Resources\HistoryBalanceResource;
 use App\Http\Resources\UniAd\UniAdStatusResource;
 use App\Models\UniCategoryBoard;
+use App\Services\FilterService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Services\AdService;
 
@@ -19,10 +20,12 @@ class UserController extends Controller
 {
 
     protected AdService $adService;
+    protected FilterService $filterService;
 
-    public function __construct(AdService $adService)
+    public function __construct(AdService $adService, FilterService $filterService)
     {
         $this->adService = $adService;
+        $this->filterService = $filterService;
     }
     public function index()
     {
@@ -107,7 +110,8 @@ class UserController extends Controller
             ->where('ads_status', 7)
             ->get();
 
-        $activeAdsResult = $this->adService->prepareFilters($activeAds);
+
+        $activeAdsResult = $this->adService->prepareAdsFilterData($activeAds);
         $archiveAdsResult = $this->adService->prepareAdsFilterData($archiveAds);
         $waitingAdsResult = $this->adService->prepareAdsFilterData($waitingAds);
         $moderatedAdsResult = $this->adService->prepareAdsFilterData($moderatedAds);
@@ -117,6 +121,8 @@ class UserController extends Controller
             if ($parentCategory) {
                 $ad['category_parent_id'] = $parentCategory->category_board_id_parent;
             }
+            $filters = $this->filterService->load_filters_ad($ad['ads_id_cat'], $this->filterService->getVariants($ad['ads_id']), $ad['ads_id']);
+            $ad->filters_all = $filters;
         }
 
         foreach ($archiveAdsResult as &$ad) {
@@ -124,6 +130,8 @@ class UserController extends Controller
             if ($parentCategory) {
                 $ad['category_parent_id'] = $parentCategory->category_board_id_parent;
             }
+            $filters = $this->filterService->load_filters_ad($ad['ads_id_cat'], $this->filterService->getVariants($ad['ads_id']), $ad['ads_id']);
+            $ad->filters_all = $filters;
         }
 
         foreach ($waitingAdsResult as &$ad) {
@@ -131,6 +139,8 @@ class UserController extends Controller
             if ($parentCategory) {
                 $ad['category_parent_id'] = $parentCategory->category_board_id_parent;
             }
+            $filters = $this->filterService->load_filters_ad($ad['ads_id_cat'], $this->filterService->getVariants($ad['ads_id']), $ad['ads_id']);
+            $ad->filters_all = $filters;
         }
 
         foreach ($moderatedAdsResult as &$ad) {
@@ -138,6 +148,8 @@ class UserController extends Controller
             if ($parentCategory) {
                 $ad['category_parent_id'] = $parentCategory->category_board_id_parent;
             }
+            $filters = $this->filterService->load_filters_ad($ad['ads_id_cat'], $this->filterService->getVariants($ad['ads_id']), $ad['ads_id']);
+            $ad->filters_all = $filters;
         }
 
 

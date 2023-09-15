@@ -26,6 +26,7 @@ class UpdateRequest extends FormRequest
             'ads_title' => 'string',
             'ads_text' => 'string',
             'ads_id_cat' => 'integer',
+            'image_names' => 'nullable|string',
             'ads_images' => 'array',
             'ads_price' => 'string',
             'ads_id_user' => 'integer',

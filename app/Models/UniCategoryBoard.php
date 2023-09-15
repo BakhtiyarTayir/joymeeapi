@@ -19,4 +19,10 @@ class UniCategoryBoard extends Model
         return $this->hasMany(UniAd::class, 'ads_id_cat', 'category_board_id');
     }
 
+    public function childrenCategories()
+    {
+        return $this->hasMany(UniCategoryBoard::class, 'category_board_id_parent', 'category_board_id');
+    }
+
+
 }

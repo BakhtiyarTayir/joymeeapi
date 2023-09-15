@@ -32,8 +32,9 @@ Route::group([
      Route::post('logout', [\App\Http\Controllers\AuthController::class, 'logout']);
      Route::post('refresh', [\App\Http\Controllers\AuthController::class, 'refresh']);
      Route::post('me', [\App\Http\Controllers\AuthController::class, 'userProfile']);
-     Route::post('register', [\App\Http\Controllers\AuthController::class, 'register']);
-     Route::get('step2', [\App\Http\Controllers\AuthController::class, 'step2']);
+     Route::post('register_step_1', [\App\Http\Controllers\AuthController::class, 'registerStep1']);
+     Route::post('register_step_2', [\App\Http\Controllers\AuthController::class, 'registerStep2']);
+     Route::delete('delete', [\App\Http\Controllers\AuthController::class, 'deleteAccount']);
 
 
 });
@@ -58,6 +59,7 @@ Route::group([
     Route::get('/countries/{countryId}/regions/{regionId}/cities', [\App\Http\Controllers\Api\V1\CountryController::class, 'getCitiesByCountryAndRegion']);
     Route::get('/city_id/{city_id}/ad_category/{ad_category}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'getAdsByCityAndCategory']);
     Route::get('/second/city_id/{city_id}/ad_category/{ad_category}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'getAdsByCityAndCategoryTwo']);
+    Route::get('/paginate/city_id/{city_id}/ad_category/{ad_category}', [\App\Http\Controllers\Api\V1\UniAdController::class, 'getAdsByCityAndCategoryWithPaginate']);
     Route::get('/reels', [\App\Http\Controllers\Api\V1\ReelsController::class, 'index']);
     Route::get('/ads/show', [\App\Http\Controllers\Api\V1\UniAdController::class, 'showWithFilter']);
     Route::get('/ads/prop', [\App\Http\Controllers\Api\V1\UniAdController::class, 'showFilter']);
@@ -67,9 +69,12 @@ Route::group([
     Route::get('/history_balance/user_id/{id}', [\App\Http\Controllers\Api\V1\UserController::class, 'getHistoryBalance']);
     Route::post('/pay/{payment}/{user_id}/{amount}', [\App\Http\Controllers\PaymentController::class, 'getParamForm']);
     Route::get('/favorites/{user_id}', [\App\Http\Controllers\Api\V1\FavoritesController::class, 'index']);
+    Route::post('/toggle_favorite', [\App\Http\Controllers\Api\V1\FavoritesController::class, 'toggleFavorite']);
+
     Route::get('/users/{userId}/ads', [\App\Http\Controllers\Api\V1\UserController::class, 'getUserAds']);
     Route::get('/ads/vip', [\App\Http\Controllers\Api\V1\UniAdController::class, 'getVipAds']);
-    Route::post('/ads/search', [\App\Http\Controllers\Api\V1\UniAdController::class, 'searchAds']);
+    Route::post('/ads/paginate/search', [\App\Http\Controllers\Api\V1\UniAdController::class, 'searchAds']);
+    Route::post('/ads/search', [\App\Http\Controllers\Api\V1\UniAdController::class, 'search']);
     // Список объявлений
     Route::get('/ads', [\App\Http\Controllers\Api\V1\UniAdController::class, 'index']);
     // Создание объявления

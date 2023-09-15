@@ -48,7 +48,7 @@ class AdService
     public function getVariantsData($ad_id)
     {
         $variantsData = [];
-    
+
         if ($ad_id) {
             $getVariants = AdsFiltersVariant::where('ads_filters_variants_product_id', $ad_id)
                 ->whereHas('filter.categories', function ($query) use ($ad_id) {
@@ -56,17 +56,17 @@ class AdService
                 })
                 ->orderBy('ads_filters_variants_id', 'asc')
                 ->get();
-    
+
             if ($getVariants->count() > 0) {
                 foreach ($getVariants as $result) {
                     $filterId = $result['ads_filters_variants_id_filter'];
-    
+
                     $getFilter = AdsFilter::where('ads_filters_id', $filterId)->first();
-    
+
                     if ($getFilter) {
                         // Получаем элементы фильтра
                         $items = AdsFiltersItem::where('ads_filters_items_id_filter', $filterId)->get()->toArray();
-    
+
                         $variantsData[] = [
                             'filter_id' => $getFilter['ads_filters_id'],
                             'title' => $getFilter['ads_filters_name'],
@@ -196,7 +196,7 @@ class AdService
 
 
             // Добавляем свойство filters в ассоциативный массив объявления
-            $ad['selected_filters'] = $filters;
+            $ad['filters'] = $filters;
 
             $adProperties = $this->outProductProperties($ad['ads_id'], $ad['ads_id_cat'], [], $ad['ads_city_id']);
 
@@ -205,14 +205,13 @@ class AdService
 
             foreach ($adProperties as $propertyKey => $propertyValue) {
                  $updatedFilters[] = [
-                    'id' => '',
                     'title' => $propertyKey,
                     'value' => $propertyValue,
                 ];
             }
 
-            $ad['selected_filters'] = array_merge($ad['selected_filters'], $updatedFilters);
-            $ad['filters'] = $this->getFiltersForCategory($ad['ads_id_cat']);
+             $ad['filters'] = array_merge($ad['filters'], $updatedFilters);
+            // $ad['filters'] = $this->getFiltersForCategory($ad['ads_id_cat']);
             $ad['count_views'] = (string)$this->getCountView($ad['ads_id']);
             $ad['count_views_phone'] = (string)$this->getCountPhone($ad['ads_id']);
             $ad['in_favorite'] = (string)$this->getCountFavorites($ad['ads_id']);
@@ -324,7 +323,6 @@ class AdService
             $ad['days'] = $this->difference_days($ad['ads_period_publication'], date('Y-m-d H:i:s'));
             $result[] = $ad;
         }
-        dd($result);
         return $result;
     }
     public function prepareAdData($ad)

@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UniAd\StoreRequest;
 use App\Http\Requests\UniAd\UpdateRequest;
+use App\Http\Resources\UniAd\UniAdMapResource;
+use App\Http\Resources\UniAd\UniAdPaginateResource;
 use App\Http\Resources\UniAd\UniAdResource;
+use App\Http\Resources\UniAd\UniAdEditResource;
 use App\Models\AdsFilter;
 use App\Models\AdsFiltersAlias;
 use App\Models\AdsFiltersItem;
@@ -13,21 +16,29 @@ use App\Models\AdsFiltersVariant;
 use App\Models\UniAd;
 use App\Models\UniCategoryBoard;
 use App\Services\AdService;
+use App\Services\FilterService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
-use function PHPUnit\Framework\isEmpty;
+use Tymon\JWTAuth\Facades\JWTAuth;
+
 
 class UniAdController extends Controller
 {
 
     protected AdService $adService;
 
-    public function __construct(AdService $adService)
+    protected FilterService  $filterService;
+
+    public function __construct(AdService $adService, FilterService $filterService)
     {
         $this->adService = $adService;
+        $this->filterService = $filterService;
+
     }
 
     /**
@@ -150,6 +161,19 @@ class UniAdController extends Controller
         if (!$uniAd) {
             return response()->json(['error' => 'Ad not found'], 404);
         }
+        $token = JWTAuth::parseToken();
+        $user = $token->authenticate();
+
+
+
+        if ($uniAd->ads_id_user) {
+            DB::table('uni_ads_views')->insert([
+                'ads_views_id_ad' => $id,
+                'ads_views_date' => now(),
+                'ads_views_id_user' => $uniAd->ads_id_user,
+            ]);
+
+        }
 
         // Получаем родительскую категорию
         $parentCategory = UniCategoryBoard::where('category_board_id', $uniAd->ads_id_cat)->first();
@@ -159,9 +183,9 @@ class UniAdController extends Controller
         $adData = $this->adService->prepareAdData($uniAd);
 
         $adData->category_parent_id = $parentCategory->category_board_id_parent;
-
-        // Оборачиваем результат в UniAdResource
-        return new UniAdResource($adData);
+        $filters = $this->filterService->load_filters_ad($uniAd->ads_id_cat, $this->filterService->getVariants($id), $id);
+        $adData->filters_selected = $filters;
+        return new UniAdEditResource($adData);
     }
 
 
@@ -169,6 +193,9 @@ class UniAdController extends Controller
     public function update(UpdateRequest $request, $uni_id)
     {
         $data = $request->validated();
+
+
+
         $uniAd = UniAd::findOrFail($uni_id);
 
 
@@ -178,8 +205,39 @@ class UniAdController extends Controller
         $data['ads_period_day'] = 30;
         $data['ads_country_id'] = 12;
 
-        $imageUrls = [];
+
+        $existingImages = $uniAd->ads_images;
+
         $absolutePath = 'D:/OSPanel/domains/joymee/media/images_boards';
+
+        if(isset($data["image_names"])) {
+
+            $imageNames = explode(',', $data['image_names']);
+            // Determine new images to add
+            $newImages = array_diff($imageNames, $existingImages);
+            // Determine images to remove
+            $imagesToRemove = array_diff($existingImages, $imageNames);
+            // Determine existing images that are unchanged (if needed)
+            $unchangedImages = array_intersect($imageNames, $existingImages);
+            // dd('new images ', $newImages, 'to remove ', $imagesToRemove, 'unchanged ' ,$unchangedImages);
+
+            foreach ($imagesToRemove as $imageName) {
+                $imagePathBig = $absolutePath .'/big/'. $imageName;
+                $imagePathSmall = $absolutePath .'/small/'. $imageName;
+                if (file_exists($imagePathBig )) {
+                    unlink($imagePathBig ); // This will delete the image file
+                }
+                if (file_exists($imagePathSmall )) {
+                    unlink($imagePathSmall); // This will delete the image file
+                }
+                $uniAd::where('ads_images', $imageName)->delete();
+            }
+
+        }
+
+
+
+        $imageUrls = [];
 
         if ($request->hasFile('ads_images')) {
             foreach ($request->file('ads_images') as $file) {
@@ -195,14 +253,29 @@ class UniAdController extends Controller
                 $imageUrls[] = $imageName;
             }
         }
+        if(isset($data["image_names"])) {
+            $imageNames = explode(',', $data['image_names']);
+            // Determine new images to add
+            $newImages = array_diff($imageNames, $existingImages);
+            // Determine images to remove
+            $imagesToRemove = array_diff($existingImages, $imageNames);
+            // Determine existing images that are unchanged (if needed)
+            $unchangedImages = array_intersect($imageNames, $existingImages);
+            // dd('new images ', $newImages, 'to remove ', $imagesToRemove, 'unchanged ' ,$unchangedImages);
+            foreach ($unchangedImages as $imageName) {
+                $imageUrls[] = $imageName;
+            }
+        }
+
 
         $data['ads_images'] = $imageUrls;
 
         if(isset($data['filters'])){
             $filterData = json_decode($data['filters']);
             unset($data['filters']);
-
         }
+
+        unset($data["image_names"]);
 
 
         $uniAd->update($data);
@@ -270,6 +343,8 @@ class UniAdController extends Controller
             $uniAd->save();
         }
 
+        $this->adService->prepareAdData($uniAd);
+
         return UniAdResource::make($uniAd);
     }
 
@@ -314,12 +389,15 @@ class UniAdController extends Controller
 
         $result = [];
         foreach ($ads as $ad) {
-            $images = $ad['ads_images'];
-            $fullImagePath = array_map(function ($image) use ($baseUrl) {
-                return $baseUrl . $image;
-            }, $images);
+            if(isset($ad['ads_images'])) {
+                $images = $ad['ads_images'];
+                $fullImagePath = array_map(function ($image) use ($baseUrl) {
+                    return $baseUrl . $image;
+                }, $images);
 
-            $ad['ads_images'] = $fullImagePath;
+                $ad['ads_images'] = $fullImagePath;
+            }
+
 
             // Обработка ads_price
             if ($ad['ads_price'] >= 1000000) {
@@ -379,8 +457,50 @@ class UniAdController extends Controller
 
         $result = $this->prepareAdsData($ads);
 
-        return UniAdResource::collection(collect($result));
+        return UniAdMapResource::collection(collect($result));
     }
+
+    public function getAdsByCityAndCategoryWithPaginate(Request $request, $cityId, $ad_category)
+    {
+        // Define the number of ads per page
+        $perPage = $request->input('per_page', 10); // You can adjust the default value as needed
+
+        $parentCategory = UniCategoryBoard::where('category_board_id', $ad_category)->first();
+
+        if ($parentCategory) {
+            $categoryIds = [$ad_category];
+            $categoryIds = array_merge($categoryIds, $this->getAllChildCategories($parentCategory));
+        } else {
+            $categoryIds = [$ad_category];
+        }
+
+        // Query to filter ads by category and city
+        $query = UniAd::whereIn('ads_id_cat', $categoryIds)
+            ->whereHas('city', function ($query) use ($cityId) {
+                $query->where('ads_city_id', $cityId);
+            });
+
+        // Paginate the results
+        $ads = $query->paginate($perPage);
+
+        if ($ads->isEmpty()) {
+            return response()->json(['message' => 'Объявления не найдены'], ResponseAlias::HTTP_NOT_FOUND);
+        }
+
+        // Prepare the data for the current page
+        $result = $this->prepareAdsData($ads);
+
+        // Create a new Paginator instance to include pagination information in the response
+        $paginator = new Paginator($result, $perPage, $ads->currentPage(), [
+            'path' => Paginator::resolveCurrentPath(),
+            'pageName' => 'page',
+        ]);
+
+        // Return the paginated data using UniAdMapResource
+        return UniAdPaginateResource::collection($paginator);
+    }
+
+
 
     public function showWithFilter()
     {
@@ -433,7 +553,6 @@ class UniAdController extends Controller
 
     public function searchAds(Request $request)
     {
-
         $regionId = $request->input('region');
         $cityId = $request->input('city');
         $districtId = $request->input('area');
@@ -442,7 +561,18 @@ class UniAdController extends Controller
         $query = UniAd::query()
             ->active()
             ->regionCityDistrict($regionId, $cityId, $districtId)
-            ->category($category);
+           ->category($category);
+
+        $parentCategory = UniCategoryBoard::where('category_board_id', $category)->first();
+
+        if ($parentCategory) {
+            $categoryIds = [$category];
+            $categoryIds = array_merge($categoryIds, $this->getAllChildCategories($parentCategory));
+        } else {
+            $categoryIds = [$category];
+        }
+
+        $query->whereIn('ads_id_cat', $categoryIds);
 
         $minPrice = $request->input('min_price');
         $maxPrice = $request->input('max_price');
@@ -455,42 +585,43 @@ class UniAdController extends Controller
             $query->where('ads_price', '<=', $maxPrice);
         }
 
-        $filters = $request->input('filters');
 
-        foreach ($filters as $filterItem) {
-            $filterId = $filterItem['filter_id'];
-            $filterType = $filterItem['type'];
-            $items = $filterItem['items'];
+        $filters = explode(',', $request->input('filters'));
 
-            if ($filterType === 'input' || $filterType === 'select') {
-                // Можно объединить оба случая
-                $itemValue = is_array($items) ? $items['id'] : $items;
+        $filterItemIds = [];
+        foreach ($filters as $filter) {
+            if (strpos($filter, ':') !== false) {
+                list($filterId, $itemValue) = explode(':', $filter);
 
-                $productIds = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
+                // Получаем ID элемента фильтра
+                $filterItemId = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
                     ->where('ads_filters_variants_val', $itemValue)
-                    ->pluck('ads_filters_variants_product_id');
-                
-                $query->whereIn('ads_id', $productIds);
-            } else if ($filterType === 'select_multi') {
-                foreach ($items as $item) {
-                    $itemValue = $item['id'];
-                    
-                    $productIds = AdsFiltersVariant::where('ads_filters_variants_id_filter', $filterId)
-                        ->where('ads_filters_variants_val', $itemValue)
-                        ->pluck('ads_filters_variants_product_id');
-                    
-                    $query->whereIn('ads_id', $productIds);
+                    ->pluck('ads_filters_variants_product_id')
+                    ->first();
+
+                if (isset($filterItemId)) {
+                    $filterItemIds[] = $filterItemId;
                 }
             }
         }
 
+        // Если элементы фильтра найдены, добавляем условие в запрос
+        if (!empty($filterItemIds)) {
+            $query->whereIn('ads_id', $filterItemIds);
+        }
+
         $ads = $query->get();
+
+        if ($ads->isEmpty()) {
+            return response()->json(['message' => 'Объявления не найдены'], 404);
+        }
+
         $adsResult = $this->adService->prepareAdsData($ads);
-        return UniAdResource::collection(collect($adsResult));
+        return UniAdMapResource::collection(collect($adsResult));
     }
 
 
-    
+
 
     public function getVariants($ad_id = 0)
     {
@@ -516,6 +647,19 @@ class UniAdController extends Controller
         }
 
         return [];
+    }
+
+
+    private function getAllChildCategories($category)
+    {
+        $childCategories = [];
+
+        foreach ($category->childrenCategories as $childCategory) {
+            $childCategories[] = $childCategory->category_board_id;
+            $childCategories = array_merge($childCategories, $this->getAllChildCategories($childCategory));
+        }
+
+        return $childCategories;
     }
 
     public function outProductProperties($product_id = 0, $id_cat = 0, $category = [], $city_alias = "")

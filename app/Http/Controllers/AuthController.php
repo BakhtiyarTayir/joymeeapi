@@ -21,66 +21,18 @@ class AuthController extends Controller
      * @return void
      */
     public function __construct() {
-        $this->middleware('auth:api', ['except' => ['login', 'register', 'step2']]);
+        $this->middleware('auth:api', ['except' => ['login', 'registerStep1', 'registerStep2']]);
     }
 
-    /**
-     * Register a User.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
 
-//    public function register(Request $request) {
-//
-//        $validator = Validator::make($request->all(), [
-//            'clients_name' => 'required|string|between:2,100',
-//            'clients_pass' => 'required|string|confirmed|min:8',
-//            'type_is_email' => 'required|boolean',
-//            'clients_email' => 'required_if:type_is_email,true|string|email|max:100|unique:uni_clients,clients_email', // Валидация email
-//            'clients_phone' => 'required_if:type_is_email,false|string|max:30|unique:uni_clients,clients_phone', // Валидация телефона
-//            'clients_id_hash' => 'string',
-//        ]);
-//
-///*        if ($validator->fails()) {
-//            return response()->json($validator->errors()->toJson(), 400);
-//        }*/
-//        if ($validator->fails()) {
-//            $firstErrorMessage = $validator->errors()->first();
-//            return response()->json(['message' => $firstErrorMessage], 400);
-//        }
-//
-//        $userData = [
-//            'clients_name' => $request->clients_name,
-//            'clients_pass' => password_hash($request->clients_pass . "4f7b37eac80ddaac99086dec1ff21a41", PASSWORD_DEFAULT),
-//            'clients_id_hash' => md5($request->input('clients_email') ?: $request->input('clients_phone')),
-//        ];
-//
-//        // В зависимости от типа регистрации, добавляем соответствующие данные в массив
-//        if ($request->input('type_is_email')) {
-//            $userData['clients_email'] = $request->input('clients_email');
-//        } else {
-//            $userData['clients_phone'] = $request->input('clients_phone');
-//        }
-//
-//        $user = Client::create($userData);
-//
-//
-//        $token = Auth::login($user);
-//
-//        return $this->getToken($token);
-//
-//
-//    }
 
-    public function register(Request $request)
+
+    public function registerStep1(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
-            'clients_name' => 'required|string|between:2,100',
             'type_is_email' => 'required|boolean',
-            'clients_email' => 'required_if:type_is_email,true|string|email|max:100|unique:uni_clients,clients_email',
-            'clients_phone' => 'required_if:type_is_email,false|string|max:30|unique:uni_clients,clients_phone',
-            'clients_id_hash' => 'string',
+            'clients_email' => 'required_if:type_is_email,true|string|email|max:100',
+            'clients_phone' => 'required_if:type_is_email,false|string|max:30',
         ]);
 
         if ($validator->fails()) {
@@ -88,32 +40,26 @@ class AuthController extends Controller
             return response()->json(['message' => $firstErrorMessage], 400);
         }
 
-        // Создание пользователя в базе данных
-        $userData = [
-            'clients_name' => $request->clients_name,
-            'clients_pass' => password_hash($request->clients_pass . "4f7b37eac80ddaac99086dec1ff21a41", PASSWORD_DEFAULT),
-            'clients_id_hash' => md5($request->clients_email ?: $request->clients_phone),
-        ];
-
-        // В зависимости от типа регистрации, добавляем соответствующие данные в массив
+        // Проверка существования пользователя
         if ($request->type_is_email) {
-            $userData['clients_email'] = $request->clients_email;
+            $existingUser = Client::where('clients_email', $request->clients_email)->first();
         } else {
-            $userData['clients_phone'] = $request->clients_phone;
+            $existingUser = Client::where('clients_phone', $request->clients_phone)->first();
         }
 
-        Cache::put('user_data', $userData, now()->addMinutes(15));
-
+        if ($existingUser) {
+            return response()->json(['message' => 'User already exists'], 400);
+        }
 
         if (!$request->type_is_email) {
             $phone = $this->formatPhone($request->clients_phone);
             $verificationCode = $this->smsVerificationCode($phone);
 
-            // Сохраняем код подтверждения и другие данные в сессии или переменных
-            return response()->json(['status' => true, 'verification_code' => $verificationCode]);
-        }
-        else  {
-
+            return response()->json([
+                'status' => true,
+                'verification_code' => $verificationCode,
+            ]);
+        } else {
             $verificationCode = mt_rand(1000, 9999);
 
             try {
@@ -122,30 +68,47 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Failed to send email verification'], 500);
             }
 
-
+            return response()->json([
+                'status' => true,
+                'verification_code' => $verificationCode,
+            ]);
         }
-
     }
 
-
-    public function step2(Request $request)
+    public function registerStep2(Request $request)
     {
-        $userData = Cache::get('user_data');
+        $validator = Validator::make($request->all(), [
+            'clients_name' => 'required|string|between:2,100',
+            'clients_email' => 'nullable|string|email|max:100',
+            'clients_phone' => 'nullable|string|max:30',
+        ]);
 
-        if (!$userData) {
-            return response()->json('registration fails');
-
+        if ($validator->fails()) {
+            $firstErrorMessage = $validator->errors()->first();
+            return response()->json(['message' => $firstErrorMessage], 400);
         }
+
+
+        $userData = [
+            'clients_name' => $request->clients_name,
+            'clients_pass' => password_hash($request->clients_pass . "4f7b37eac80ddaac99086dec1ff21a41", PASSWORD_DEFAULT),
+            'clients_id_hash' => md5($request->clients_email ?: $request->clients_phone),
+            'clients_balance' => 10000,
+        ];
+
+        if ($request->clients_email) {
+            $userData['clients_email'] = $request->clients_email;
+        } else {
+            $userData['clients_phone'] = $request->clients_phone;
+        }
+
         $user = Client::create($userData);
 
         // Создание токена и возврат ответа
         $token = Auth::login($user);
 
-        Cache::forget('user_data');
         return $this->getToken($token);
-
     }
-
 
 
     /**
@@ -153,17 +116,45 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
+//    public function login(Request $request)
+//    {
+//        $validator = Validator::make($request->all(), [
+//            'clients_email' => 'required|email',
+//            'clients_pass' => 'required|string',
+//        ]);
+
+
+//        $user = Client::where('clients_email', $request->clients_email)->first();
+
+//        if (!$user || !password_verify($request->clients_pass."4f7b37eac80ddaac99086dec1ff21a41", $user->clients_pass)) {
+//            return response()->json(['error' => 'Unauthorized'], 401);
+//        }
+
+//        $token = Auth::login($user);
+
+//        return $this->createNewToken($token);
+//    }
+
+
+
+
     public function login(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'clients_email' => 'required|email',
-            'clients_pass' => 'required|string',
-        ]);
+        $credentials = $request->only(['clients_email', 'clients_pass']);
+
+        // Определите, является ли входом email или номер телефона
+        $isEmail = filter_var($credentials['clients_email'], FILTER_VALIDATE_EMAIL);
 
 
-        $user = Client::where('clients_email', $request->clients_email)->first();
 
-        if (!$user || !password_verify($request->clients_pass."4f7b37eac80ddaac99086dec1ff21a41", $user->clients_pass)) {
+        // Ищем пользователя по email или номеру телефона
+        $user = $isEmail
+            ? Client::where('clients_email', $credentials['clients_email'])->first()
+            : Client::where('clients_phone', $credentials['clients_email'])->first();
+
+
+
+        if (!$user || !password_verify($credentials['clients_pass'] . "4f7b37eac80ddaac99086dec1ff21a41", $user->clients_pass)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -171,8 +162,6 @@ class AuthController extends Controller
 
         return $this->createNewToken($token);
     }
-
-
 
 
 
@@ -225,6 +214,24 @@ class AuthController extends Controller
         return response()->json($responseData );
     }
 
+
+    public function deleteAccount(Request $request)
+    {
+        $user = Auth::user(); // Получаем текущего аутентифицированного пользователя
+
+        // Проверяем, существует ли пользователь
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Дополнительные проверки (например, подтверждение паролем или другие безопасные меры)
+
+        // Удаление аккаунта
+        $user->delete();
+
+        return response()->json(['message' => 'Account deleted successfully']);
+    }
+
     /**
      * Get the token array structure.
      *
@@ -236,8 +243,9 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
-            // 'expires_in' => auth()->factory()->getTTL() * 60,
-            //  'user' => auth()->user()
+           //  'expires_in' => auth()->factory()->getTTL() * 60,
+            'expires_in' => null,
+            'user' => auth()->user()
         ]);
     }
 
@@ -246,8 +254,9 @@ class AuthController extends Controller
             'message' => 'User successfully registered',
             'access_token' => $token,
             'token_type' => 'bearer',
-            // 'expires_in' => auth()->factory()->getTTL() * 60,
-            //  'user' => auth()->user()
+             //'expires_in' => auth()->factory()->getTTL() * 60,
+            'expires_in' => null,
+            'user' => auth()->user()
         ]);
     }
 
@@ -268,24 +277,7 @@ class AuthController extends Controller
     }
 
 
-//    public function sms($phone_to="",$text="",$method="sms"){
-//
-//        $sms_service_pass = 'Qz75@1%A1*c';
-//        $sms_service_login = 'kabirjanov';
-//        $params['messages'] = [
-//            "recipient" => trim($phone_to, '+'),
-//            "message-id" => mt_rand(1000000,9000000),
-//            "sms" => [
-//                "originator" => '3700',
-//                "content" => [
-//                    "text" => $text
-//                ]
-//            ]
-//        ];
-//
-//        return json_encode(sendPostRequest('http://91.204.239.44/broker-api/send', $params, ['Content-Type: application/json', 'Authorization: Basic '.base64_encode($sms_service_login.":".$sms_service_pass)]));
-//
-//    }
+
 
     public function sms($phone_to = "", $text = "", $method = "sms")
     {
